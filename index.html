@@ -239,6 +239,10 @@ function getTodayCaloriesForItem(itemId) {
 function render() {
   const settings = getSettings();
   const items = getItems();
+  const log = getLog();
+  const freq = {};
+  log.forEach(e => { freq[e.itemId] = (freq[e.itemId] || 0) + 1; });
+  items.sort((a, b) => (freq[b.id] || 0) - (freq[a.id] || 0));
   const current = getTodayCalories();
   const limit = settings.dailyLimit;
   const pct = limit > 0 ? (current / limit) * 100 : 0;
