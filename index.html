@@ -67,6 +67,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .search-fallback a { color: #1976d2; }
 .search-spinner { display: none; font-size: 13px; color: #888; margin-top: 8px; }
 
+/* Settings menu */
+.settings-item { display: flex; align-items: center; padding: 14px 4px; cursor: pointer; }
+.settings-item:active { background: #f5f5f5; }
+.settings-icon { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
+.settings-label { flex: 1; font-size: 15px; font-weight: 500; }
+.settings-chevron { color: #ccc; font-size: 18px; flex-shrink: 0; }
+.settings-divider { height: 1px; background: #e0e0e0; }
+
 /* Limit modal */
 .limit-modal .field { margin-bottom: 0; }
 </style>
@@ -76,7 +84,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 <div class="header">
   <div class="header-row">
     <div class="cal-display"><span id="calCurrent">0</span> <span class="limit">/ <span id="calLimit">2000</span></span></div>
-    <button class="edit-limit-btn" onclick="openLimitModal()" title="Edit daily limit">&#9881;</button>
+    <button class="edit-limit-btn" onclick="openSettingsModal()" title="Settings">&#9881;</button>
   </div>
   <div class="progress-wrap"><div class="progress-bar progress-green" id="progressBar"></div></div>
 </div>
@@ -133,6 +141,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     <div class="modal-actions">
       <button class="btn-save" onclick="saveLimit()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2><span>Settings</span><button class="modal-close" onclick="closeSettingsModal()">&times;</button></h2>
+    <div class="settings-item" onclick="closeSettingsModal();openLimitModal()">
+      <div class="settings-icon">&#127919;</div>
+      <div class="settings-label">Daily Calorie Limit</div>
+      <div class="settings-chevron">&#8250;</div>
+    </div>
+    <div class="settings-divider"></div>
+    <div class="settings-item" onclick="exportData('items')">
+      <div class="settings-icon">&#128230;</div>
+      <div class="settings-label">Export Items</div>
+      <div class="settings-chevron">&#8250;</div>
+    </div>
+    <div class="settings-item" onclick="triggerImport('items')">
+      <div class="settings-icon">&#128229;</div>
+      <div class="settings-label">Import Items</div>
+      <div class="settings-chevron">&#8250;</div>
+    </div>
+    <div class="settings-divider"></div>
+    <div class="settings-item" onclick="exportData('log')">
+      <div class="settings-icon">&#128230;</div>
+      <div class="settings-label">Export Log</div>
+      <div class="settings-chevron">&#8250;</div>
+    </div>
+    <div class="settings-item" onclick="triggerImport('log')">
+      <div class="settings-icon">&#128229;</div>
+      <div class="settings-label">Import Log</div>
+      <div class="settings-chevron">&#8250;</div>
+    </div>
+    <input type="file" id="fileImport" accept=".json" style="display:none">
   </div>
 </div>
 
@@ -377,9 +420,60 @@ document.getElementById('limitInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') saveLimit();
 });
 
+// --- Settings Modal ---
+function openSettingsModal() { document.getElementById('settingsModal').classList.add('open'); }
+function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('open'); }
+
+// --- Export/Import ---
+function exportData(type) {
+  const key = type === 'items' ? KEYS.items : KEYS.log;
+  const data = load(key) || [];
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ccnt_${type}_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+let importType = null;
+function triggerImport(type) {
+  importType = type;
+  const input = document.getElementById('fileImport');
+  input.value = '';
+  input.click();
+}
+
+document.getElementById('fileImport').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file || !importType) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) { alert('Invalid file: expected a JSON array.'); return; }
+      const key = importType === 'items' ? KEYS.items : KEYS.log;
+      const merge = confirm('Merge with existing data?\n\nOK = Merge (add new entries)\nCancel = Replace (overwrite all)');
+      if (merge) {
+        const current = load(key) || [];
+        const existingIds = new Set(current.map(e => e.id));
+        const newEntries = data.filter(e => !existingIds.has(e.id));
+        save(key, current.concat(newEntries));
+      } else {
+        save(key, data);
+      }
+      render();
+      closeSettingsModal();
+    } catch { alert('Failed to parse JSON file.'); }
+  };
+  reader.readAsText(file);
+});
+
 // Close modals on overlay click
 document.getElementById('itemModal').addEventListener('click', function(e) { if (e.target === this) closeItemModal(); });
 document.getElementById('limitModal').addEventListener('click', function(e) { if (e.target === this) closeLimitModal(); });
+document.getElementById('settingsModal').addEventListener('click', function(e) { if (e.target === this) closeSettingsModal(); });
 
 // --- Nutrition API Search ---
 function searchFood() {
