@@ -25,6 +25,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .progress-yellow { background: #ff9800; }
 .progress-red { background: #f44336; }
 
+/* Filter */
+.filter-wrap { padding: 8px 8px 0; position: relative; }
+.filter-wrap input { width: 100%; padding: 10px 36px 10px 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 15px; background: #fff; outline: none; }
+.filter-wrap input:focus { border-color: #1976d2; }
+.filter-clear { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 20px; color: #888; cursor: pointer; display: none; padding: 4px 8px; margin-top: 4px; }
+
 /* Food list */
 .food-list { flex: 1; padding: 8px; }
 .food-item { background: #fff; border-radius: 10px; margin-bottom: 6px; display: flex; align-items: center; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
@@ -92,6 +98,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     <button class="edit-limit-btn" onclick="openSettingsModal()" title="Settings">&#9881;</button>
   </div>
   <div class="progress-wrap"><div class="progress-bar progress-green" id="progressBar"></div></div>
+</div>
+
+<div class="filter-wrap">
+  <input type="text" id="filterInput" placeholder="Filter items..." oninput="render()">
+  <button class="filter-clear" id="filterClear" onclick="document.getElementById('filterInput').value='';render();">&times;</button>
 </div>
 
 <div class="food-list" id="foodList"></div>
@@ -318,6 +329,9 @@ function render() {
   const itemMap = new Map(items.map(i => [i.id, i]));
   const sorted = sortedItemIds.filter(id => itemMap.has(id)).map(id => itemMap.get(id));
   items.forEach(i => { if (!sortedItemIds.includes(i.id)) sorted.push(i); });
+  const filterVal = document.getElementById('filterInput').value.toLowerCase();
+  const filtered = filterVal ? sorted.filter(i => i.name.toLowerCase().includes(filterVal)) : sorted;
+  document.getElementById('filterClear').style.display = filterVal ? 'block' : 'none';
   const current = getTodayCalories();
   const limit = settings.dailyLimit;
   const pct = limit > 0 ? (current / limit) * 100 : 0;
@@ -330,12 +344,14 @@ function render() {
   bar.className = 'progress-bar ' + (pct > 100 ? 'progress-red' : pct >= 80 ? 'progress-yellow' : 'progress-green');
 
   const list = document.getElementById('foodList');
-  if (sorted.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px 16px;color:#aaa;">No food items yet.<br>Tap "+ Add New Item" to start.</div>';
+  if (filtered.length === 0) {
+    list.innerHTML = filterVal
+      ? '<div style="text-align:center;padding:40px 16px;color:#aaa;">No matching items.</div>'
+      : '<div style="text-align:center;padding:40px 16px;color:#aaa;">No food items yet.<br>Tap "+ Add New Item" to start.</div>';
     return;
   }
 
-  list.innerHTML = sorted.map(item => {
+  list.innerHTML = filtered.map(item => {
     const todayP = getTodayPortions(item.id);
     const todayCal = getTodayCaloriesForItem(item.id);
     const todayLine = todayP > 0 ? `<div class="food-today">${todayP} &times; ${item.caloriesPerPortion} = ${todayCal} kcal</div>` : '';
