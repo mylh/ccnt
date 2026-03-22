@@ -211,6 +211,16 @@ function pruneLog() {
 }
 
 // --- Core Logic ---
+let sortedItemIds = [];
+function sortItemsByFrequency() {
+  const items = getItems();
+  const log = getLog();
+  const freq = {};
+  log.forEach(e => { freq[e.itemId] = (freq[e.itemId] || 0) + 1; });
+  items.sort((a, b) => (freq[b.id] || 0) - (freq[a.id] || 0));
+  sortedItemIds = items.map(i => i.id);
+}
+
 const MERGE_WINDOW = 10 * 60 * 1000; // 10 minutes
 
 function addPortion(itemId) {
@@ -287,10 +297,9 @@ function getTodayCaloriesForItem(itemId) {
 function render() {
   const settings = getSettings();
   const items = getItems();
-  const log = getLog();
-  const freq = {};
-  log.forEach(e => { freq[e.itemId] = (freq[e.itemId] || 0) + 1; });
-  items.sort((a, b) => (freq[b.id] || 0) - (freq[a.id] || 0));
+  const itemMap = new Map(items.map(i => [i.id, i]));
+  const sorted = sortedItemIds.filter(id => itemMap.has(id)).map(id => itemMap.get(id));
+  items.forEach(i => { if (!sortedItemIds.includes(i.id)) sorted.push(i); });
   const current = getTodayCalories();
   const limit = settings.dailyLimit;
   const pct = limit > 0 ? (current / limit) * 100 : 0;
@@ -303,12 +312,12 @@ function render() {
   bar.className = 'progress-bar ' + (pct > 100 ? 'progress-red' : pct >= 80 ? 'progress-yellow' : 'progress-green');
 
   const list = document.getElementById('foodList');
-  if (items.length === 0) {
+  if (sorted.length === 0) {
     list.innerHTML = '<div style="text-align:center;padding:40px 16px;color:#aaa;">No food items yet.<br>Tap "+ Add New Item" to start.</div>';
     return;
   }
 
-  list.innerHTML = items.map(item => {
+  list.innerHTML = sorted.map(item => {
     const todayP = getTodayPortions(item.id);
     const todayCal = getTodayCaloriesForItem(item.id);
     const todayLine = todayP > 0 ? `<div class="food-today">${todayP} &times; ${item.caloriesPerPortion} = ${todayCal} kcal</div>` : '';
@@ -528,6 +537,7 @@ function fillFromSearch(name, cal100) {
 // --- Init ---
 document.addEventListener('DOMContentLoaded', function() {
   pruneLog();
+  sortItemsByFrequency();
   render();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
