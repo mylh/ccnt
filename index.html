@@ -215,9 +215,27 @@ let sortedItemIds = [];
 function sortItemsByFrequency() {
   const items = getItems();
   const log = getLog();
-  const freq = {};
-  log.forEach(e => { freq[e.itemId] = (freq[e.itemId] || 0) + 1; });
-  items.sort((a, b) => (freq[b.id] || 0) - (freq[a.id] || 0));
+  const currentHour = new Date().getHours();
+  const TIME_WINDOW = 2; // ±2 hours
+  const TIME_WEIGHT = 0.6;
+
+  const totalFreq = {};
+  const timeFreq = {};
+  log.forEach(e => {
+    totalFreq[e.itemId] = (totalFreq[e.itemId] || 0) + 1;
+    const hour = new Date(e.timestamp).getHours();
+    const diff = Math.abs(hour - currentHour);
+    const hourDist = Math.min(diff, 24 - diff);
+    if (hourDist <= TIME_WINDOW) {
+      timeFreq[e.itemId] = (timeFreq[e.itemId] || 0) + 1;
+    }
+  });
+
+  items.sort((a, b) => {
+    const scoreA = TIME_WEIGHT * (timeFreq[a.id] || 0) + (1 - TIME_WEIGHT) * (totalFreq[a.id] || 0);
+    const scoreB = TIME_WEIGHT * (timeFreq[b.id] || 0) + (1 - TIME_WEIGHT) * (totalFreq[b.id] || 0);
+    return scoreB - scoreA;
+  });
   sortedItemIds = items.map(i => i.id);
 }
 
