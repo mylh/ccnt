@@ -18,6 +18,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .header-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
 .cal-display { font-size: 28px; font-weight: 700; }
 .cal-display .limit { font-size: 18px; font-weight: 400; color: #888; }
+.protein-display { font-size: 14px; color: #888; font-weight: 500; }
 .edit-limit-btn { background: none; border: none; font-size: 18px; color: #888; cursor: pointer; padding: 4px 8px; }
 .progress-wrap { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
 .progress-bar { height: 100%; border-radius: 4px; transition: width 0.3s, background-color 0.3s; }
@@ -99,6 +100,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 <div class="header">
   <div class="header-row">
     <div class="cal-display"><span id="calCurrent">0</span> <span class="limit">/ <span id="calLimit">2000</span></span></div>
+    <div class="protein-display"><span id="proteinCurrent">0</span>g protein</div>
     <button class="edit-limit-btn" onclick="openSettingsModal()" title="Settings">&#9881;</button>
   </div>
   <div class="progress-wrap"><div class="progress-bar progress-green" id="progressBar"></div></div>
@@ -122,11 +124,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     <div class="search-wrap">
       <div class="search-row">
         <input type="text" id="searchInput" placeholder="Search food database..." enterkeyhint="search" oninput="updateSearchLinks()">
-        <button onclick="searchFood()">Search</button>
+        <button onclick="copySearchToName();searchFood()">Search</button>
       </div>
       <div class="external-search">
-        <a id="linkGoogle" href="#" target="_blank" rel="noopener">Google</a>
-        <a id="linkChatGPT" href="#" target="_blank" rel="noopener">ChatGPT</a>
+        <a id="linkGoogle" href="#" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a>
+        <a id="linkChatGPT" href="#" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a>
       </div>
       <div class="search-spinner" id="searchSpinner">Searching...</div>
       <div class="search-results" id="searchResults"></div>
@@ -142,6 +144,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     <div class="field">
       <label>Calories per 100g</label>
       <input type="number" id="itemCal100" placeholder="165" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Protein per 100g (grams)</label>
+      <input type="number" id="itemProt100" placeholder="31" inputmode="decimal" step="any">
     </div>
     <div class="field">
       <label>Calories per portion (auto-calculated)</label>
@@ -274,13 +280,16 @@ function addPortion(itemId) {
   if (idx >= 0) {
     log[idx].portions += 1;
     log[idx].totalCalories = log[idx].portions * log[idx].caloriesPerPortion;
+    log[idx].totalProtein = Math.round(log[idx].portions * (log[idx].proteinPerPortion || 0) * 10) / 10;
     log[idx].timestamp = now;
   } else {
     log.push({
       id: genId(), date: today, timestamp: now,
       itemId: item.id, itemName: item.name,
       portions: 1, caloriesPerPortion: item.caloriesPerPortion,
-      totalCalories: item.caloriesPerPortion
+      proteinPerPortion: item.proteinPerPortion || 0,
+      totalCalories: item.caloriesPerPortion,
+      totalProtein: item.proteinPerPortion || 0
     });
   }
   saveLog(log);
@@ -300,6 +309,7 @@ function removePortion(itemId) {
     log.splice(idx, 1);
   } else {
     log[idx].totalCalories = log[idx].portions * log[idx].caloriesPerPortion;
+    log[idx].totalProtein = Math.round(log[idx].portions * (log[idx].proteinPerPortion || 0) * 10) / 10;
   }
   saveLog(log);
   render();
@@ -331,6 +341,16 @@ function getTodayCaloriesForItem(itemId) {
   return getLog().filter(e => e.date === today && e.itemId === itemId).reduce((sum, e) => sum + e.totalCalories, 0);
 }
 
+function getTodayProtein() {
+  const today = todayStr();
+  return Math.round(getLog().filter(e => e.date === today).reduce((sum, e) => sum + (e.totalProtein || 0), 0) * 10) / 10;
+}
+
+function getTodayProteinForItem(itemId) {
+  const today = todayStr();
+  return Math.round(getLog().filter(e => e.date === today && e.itemId === itemId).reduce((sum, e) => sum + (e.totalProtein || 0), 0) * 10) / 10;
+}
+
 // --- Rendering ---
 function render() {
   const settings = getSettings();
@@ -347,6 +367,7 @@ function render() {
 
   document.getElementById('calCurrent').textContent = current;
   document.getElementById('calLimit').textContent = limit;
+  document.getElementById('proteinCurrent').textContent = getTodayProtein();
 
   const bar = document.getElementById('progressBar');
   bar.style.width = Math.min(pct, 100) + '%';
@@ -363,12 +384,15 @@ function render() {
   list.innerHTML = filtered.map(item => {
     const todayP = getTodayPortions(item.id);
     const todayCal = getTodayCaloriesForItem(item.id);
-    const todayLine = todayP > 0 ? `<div class="food-today">${todayP} &times; ${item.caloriesPerPortion} = ${todayCal} kcal</div>` : '';
+    const todayProt = getTodayProteinForItem(item.id);
+    const protMeta = item.proteinPer100g ? ` · ${item.proteinPer100g}g prot/100g` : '';
+    const todayProtStr = todayProt > 0 ? ` · ${todayProt}g prot` : '';
+    const todayLine = todayP > 0 ? `<div class="food-today">${todayP} &times; ${item.caloriesPerPortion} = ${todayCal} kcal${todayProtStr}</div>` : '';
     return `<div class="food-item">
       <button class="btn btn-minus" onclick="removePortion('${item.id}')">−</button>
       <div class="food-info" onclick="openItemModal('${item.id}')">
         <div class="food-name">${esc(item.name)}</div>
-        <div class="food-meta">${item.portionGrams}g · ${item.caloriesPer100g} kcal/100g · ${item.caloriesPerPortion} kcal/portion</div>
+        <div class="food-meta">${item.portionGrams}g · ${item.caloriesPer100g} kcal/100g · ${item.caloriesPerPortion} kcal/portion${protMeta}</div>
         ${todayLine}
       </div>
       <button class="btn btn-plus" onclick="addPortion('${item.id}')">+</button>
@@ -379,7 +403,7 @@ function render() {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 function updateSearchLinks() {
-  const q = encodeURIComponent(document.getElementById('searchInput').value + ' calories per 100g');
+  const q = encodeURIComponent(document.getElementById('searchInput').value + ' calories and protein per 100g');
   document.getElementById('linkGoogle').href = 'https://www.google.com/search?q=' + q;
   document.getElementById('linkChatGPT').href = 'https://chatgpt.com/?q=' + q;
 }
@@ -400,6 +424,7 @@ function openItemModal(id) {
     document.getElementById('itemName').value = item.name;
     document.getElementById('itemPortion').value = item.portionGrams;
     document.getElementById('itemCal100').value = item.caloriesPer100g;
+    document.getElementById('itemProt100').value = item.proteinPer100g || '';
     document.getElementById('itemCalPortion').value = item.caloriesPerPortion;
     document.getElementById('btnDeleteItem').style.display = '';
   } else {
@@ -407,6 +432,7 @@ function openItemModal(id) {
     document.getElementById('itemName').value = '';
     document.getElementById('itemPortion').value = '';
     document.getElementById('itemCal100').value = '';
+    document.getElementById('itemProt100').value = '';
     document.getElementById('itemCalPortion').value = '';
     document.getElementById('btnDeleteItem').style.display = 'none';
   }
@@ -423,7 +449,9 @@ function saveItem() {
   const name = document.getElementById('itemName').value.trim();
   const portion = parseInt(document.getElementById('itemPortion').value) || 100;
   const cal100 = parseInt(document.getElementById('itemCal100').value) || 0;
+  const prot100 = parseFloat(document.getElementById('itemProt100').value) || 0;
   const calPortion = Math.round(cal100 * portion / 100);
+  const protPortion = Math.round(prot100 * portion / 100 * 10) / 10;
 
   if (!name) { document.getElementById('itemName').focus(); return; }
 
@@ -434,10 +462,12 @@ function saveItem() {
       item.name = name;
       item.portionGrams = portion;
       item.caloriesPer100g = cal100;
+      item.proteinPer100g = prot100;
       item.caloriesPerPortion = calPortion;
+      item.proteinPerPortion = protPortion;
     }
   } else {
-    items.push({ id: genId(), name, portionGrams: portion, caloriesPer100g: cal100, caloriesPerPortion: calPortion });
+    items.push({ id: genId(), name, portionGrams: portion, caloriesPer100g: cal100, proteinPer100g: prot100, caloriesPerPortion: calPortion, proteinPerPortion: protPortion });
   }
   saveItems(items);
   closeItemModal();
@@ -555,33 +585,42 @@ function searchFood() {
       const products = (data.products || []).filter(p => p.product_name && p.nutriments && p.nutriments['energy-kcal_100g'] != null);
       if (products.length === 0) {
         results.innerHTML = `<div class="search-fallback">No results found. Try searching on:
-          <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories per 100g')}" target="_blank" rel="noopener">Google</a> ·
-          <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories per 100g in ' + q)}" target="_blank" rel="noopener">ChatGPT</a></div>`;
+          <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories and protein per 100g')}" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a> ·
+          <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a></div>`;
         return;
       }
       results.innerHTML = products.map(p => {
         const cal = Math.round(p.nutriments['energy-kcal_100g']);
+        const prot = Math.round((p.nutriments['proteins_100g'] || 0) * 10) / 10;
         const name = p.product_name.slice(0, 60);
-        return `<div class="search-result" onclick="fillFromSearch('${esc(name.replace(/'/g, "\\'"))}', ${cal})">
+        return `<div class="search-result" onclick="fillFromSearch('${esc(name.replace(/'/g, "\\'"))}', ${cal}, ${prot})">
           <div class="sr-name">${esc(name)}</div>
-          <div class="sr-cal">${cal} kcal / 100g</div>
+          <div class="sr-cal">${cal} kcal / 100g · ${prot}g protein</div>
         </div>`;
       }).join('');
     })
     .catch(() => {
       spinner.style.display = 'none';
       results.innerHTML = `<div class="search-fallback">Search failed. Try:
-        <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories per 100g')}" target="_blank" rel="noopener">Google</a> ·
-        <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories per 100g in ' + q)}" target="_blank" rel="noopener">ChatGPT</a></div>`;
+        <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories and protein per 100g')}" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a> ·
+        <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a></div>`;
     });
 }
 
-function fillFromSearch(name, cal100) {
+function fillFromSearch(name, cal100, prot100) {
   document.getElementById('itemName').value = name;
   document.getElementById('itemCal100').value = cal100;
+  document.getElementById('itemProt100').value = prot100 || '';
   document.getElementById('searchResults').innerHTML = '';
   calcPortion();
   document.getElementById('itemPortion').focus();
+}
+
+function copySearchToName() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (q && !document.getElementById('itemName').value.trim()) {
+    document.getElementById('itemName').value = q;
+  }
 }
 
 // --- Init ---
