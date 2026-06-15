@@ -32,6 +32,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .filter-wrap input:focus { border-color: #1976d2; }
 .filter-clear { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 20px; color: #888; cursor: pointer; display: none; padding: 4px 8px; margin-top: 4px; }
 
+/* Quick keyboard */
+.quick-kb { display: flex; gap: 4px; padding: 6px 8px 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.quick-kb::-webkit-scrollbar { display: none; }
+.quick-kb .kb-key { min-width: 32px; height: 32px; border: none; border-radius: 6px; background: #e8e8e8; color: #333; font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.quick-kb .kb-key:active { background: #1976d2; color: #fff; }
+.quick-kb .kb-back { background: #ffebee; color: #f44336; font-size: 16px; }
+.quick-kb .kb-back:active { background: #f44336; color: #fff; }
+
 /* Food list */
 .food-list { flex: 1; padding: 8px; }
 .food-item { background: #fff; border-radius: 10px; margin-bottom: 6px; display: flex; align-items: center; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
@@ -110,6 +118,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   <input type="text" id="filterInput" placeholder="Filter items..." oninput="render()">
   <button class="filter-clear" id="filterClear" onclick="document.getElementById('filterInput').value='';render();">&times;</button>
 </div>
+<div class="quick-kb" id="quickKb"></div>
 
 <div class="food-list" id="foodList"></div>
 
@@ -399,6 +408,46 @@ function render() {
       <button class="btn btn-plus" onclick="addPortion('${item.id}')">+</button>
     </div>`;
   }).join('');
+
+  renderKeyboard();
+}
+
+function renderKeyboard() {
+  const prefix = document.getElementById('filterInput').value.toLowerCase();
+  const items = getItems();
+  const pos = prefix.length;
+  const freq = {};
+  items.forEach(item => {
+    const name = item.name.toLowerCase();
+    if (name.startsWith(prefix) && name.length > pos) {
+      const ch = name[pos];
+      freq[ch] = (freq[ch] || 0) + 1;
+    }
+  });
+  const keys = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
+  const kb = document.getElementById('quickKb');
+  if (keys.length === 0) {
+    kb.innerHTML = '';
+    return;
+  }
+  let html = '';
+  if (prefix.length > 0) {
+    html += `<button class="kb-key kb-back" onclick="kbBack()">&larr;</button>`;
+  }
+  html += keys.map(k => `<button class="kb-key" onclick="kbTap('${k}')">${k}</button>`).join('');
+  kb.innerHTML = html;
+}
+
+function kbTap(ch) {
+  const input = document.getElementById('filterInput');
+  input.value += ch;
+  render();
+}
+
+function kbBack() {
+  const input = document.getElementById('filterInput');
+  input.value = input.value.slice(0, -1);
+  render();
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
