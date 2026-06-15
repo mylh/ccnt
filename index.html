@@ -129,6 +129,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
       <div class="external-search">
         <a id="linkGoogle" href="#" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a>
         <a id="linkChatGPT" href="#" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a>
+        <a id="linkClaude" href="#" target="_blank" rel="noopener" onclick="copySearchToName()">Claude</a>
       </div>
       <div class="search-spinner" id="searchSpinner">Searching...</div>
       <div class="search-results" id="searchResults"></div>
@@ -406,6 +407,7 @@ function updateSearchLinks() {
   const q = encodeURIComponent(document.getElementById('searchInput').value + ' calories and protein per 100g');
   document.getElementById('linkGoogle').href = 'https://www.google.com/search?q=' + q;
   document.getElementById('linkChatGPT').href = 'https://chatgpt.com/?q=' + q;
+  document.getElementById('linkClaude').href = 'https://claude.ai/new?q=' + q;
 }
 
 // --- Item Modal ---
@@ -586,7 +588,8 @@ function searchFood() {
       if (products.length === 0) {
         results.innerHTML = `<div class="search-fallback">No results found. Try searching on:
           <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories and protein per 100g')}" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a> ·
-          <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a></div>`;
+          <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a> ·
+          <a href="https://claude.ai/new?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">Claude</a></div>`;
         return;
       }
       results.innerHTML = products.map(p => {
@@ -603,7 +606,8 @@ function searchFood() {
       spinner.style.display = 'none';
       results.innerHTML = `<div class="search-fallback">Search failed. Try:
         <a href="https://www.google.com/search?q=${encodeURIComponent(q + ' calories and protein per 100g')}" target="_blank" rel="noopener" onclick="copySearchToName()">Google</a> ·
-        <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a></div>`;
+        <a href="https://chatgpt.com/?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">ChatGPT</a> ·
+        <a href="https://claude.ai/new?q=${encodeURIComponent('How many calories and protein per 100g in ' + q)}" target="_blank" rel="noopener" onclick="copySearchToName()">Claude</a></div>`;
     });
 }
 
